@@ -8,17 +8,12 @@ import (
 	"strconv"
 	"os"
 	"encoding/csv"
+	"strings"
 )
-
-type chart struct {
-	sym Symbol
-	date []string
-	open, close, high, low []float32
-}
 
 func scraper(ch chan chart) {
 	// read list of symbols to check
-	file, err := os.Open("stocks.csv")
+	file, err := os.Open("input/test_stocks.csv")
 	checkError(err)
 	defer file.Close()
 
@@ -110,19 +105,31 @@ func parseTable(t *colly.HTMLElement, stock Symbol) (chart) {
 		var price float64
 		var err error
 
-		price, err = strconv.ParseFloat(row.ChildText("td:nth-child(3)"), 32)
+		price, err = strconv.ParseFloat(
+			strings.Replace(row.ChildText("td:nth-child(3)"), ",", "", -1), 
+			32,
+		)
 		checkError(err)
 		dat.high = append(dat.high, float32(price))
 
-		price, err = strconv.ParseFloat(row.ChildText("td:nth-child(4)"), 32)
+				price, err = strconv.ParseFloat(
+			strings.Replace(row.ChildText("td:nth-child(4)"), ",", "", -1), 
+			32,
+		)
 		checkError(err)
 		dat.low = append(dat.low, float32(price))
 
-		price, err = strconv.ParseFloat(row.ChildText("td:nth-child(2)"), 32)
+		price, err = strconv.ParseFloat(
+			strings.Replace(row.ChildText("td:nth-child(2)"), ",", "", -1), 
+			32,
+		)
 		checkError(err)
 		dat.open = append(dat.open, float32(price))
 
-		price, err = strconv.ParseFloat(row.ChildText("td:nth-child(5)"), 32)
+		price, err = strconv.ParseFloat(
+			strings.Replace(row.ChildText("td:nth-child(5)"), ",", "", -1), 
+			32,
+		)
 		checkError(err)
 		dat.close = append(dat.close, float32(price))
 
