@@ -6,9 +6,26 @@ import (
 	"time"
 	"github.com/gocolly/colly"
 	"strconv"
+	"os"
+	"encoding/csv"
 )
 
-func scraper(/*c chan chart*/) {
+type chart struct {
+	sym Symbol
+	date []string
+	open, close, high, low []float32
+}
+
+func scraper(ch chan chart) {
+	// read list of symbols to check
+	file, err := os.Open("stocks.csv")
+	checkError(err)
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	lines, err := reader.ReadAll()
+	checkError(err)
+
 	// set up collector
 	c := colly.NewCollector(
 		colly.UserAgent("Mozilla/5.0"),
@@ -20,27 +37,40 @@ func scraper(/*c chan chart*/) {
 		RandomDelay: 2 * time.Second,
 	})
 
-	sym := new(comb_sym)
+	// set up callbacks and pointers
+	symc := new(comb_sym) // symc for symbol (combined)
+	symb := new(sym) // symb to diff from sym (type)
 	dat := new(chart)
 	
 	c.OnHTML("tbody", func(el *colly.HTMLElement) {
-		fmt.Println("Found table.")
-		*dat = parseTable(el, *sym)
+		if symc.symbol != "" { 
+			*dat = parseTable(el, *symc)
+		} else {
+			*dat = parseTable(el, *symb)
+		}
 	})
 
-	// for loop (sym in symbols)
+	// loop through symbols
+	for _, line := range lines {
+		var err error
 
-	*sym = comb_sym{"XSP", "TO"}
-	err := getDatFromSymbol(c, *sym)
-	checkError(err)
+		if line[1] != "" { // combined symbol
+			*symc = comb_sym{line[0], line[1]}
+			*symb = sym{""} // placeholder so we know to look at other ptr
 
-	// end loop
-}
+			err = getDatFromSymbol(c, *symc) 
+		} else {
+			*symb = sym{line[0]}
+			*symc = comb_sym{"",""}
 
-type chart struct {
-	sym Symbol
-	date []string
-	open, close, high, low []float32
+			err = getDatFromSymbol(c, *symb) 
+		}
+
+		checkError(err)
+		ch <- *dat
+	}
+
+	close(ch)
 }
 
 func getDatFromSymbol(c *colly.Collector, stock Symbol, days ...int64) (error) {
@@ -63,7 +93,7 @@ func getDatFromSymbol(c *colly.Collector, stock Symbol, days ...int64) (error) {
 
 	fmt.Printf("Searching for %s...\n", stock.GetString())
 	c.Visit(stock.GetURL(span))
-	return nil
+	return nil // no error
 }
 
 func parseTable(t *colly.HTMLElement, stock Symbol) (chart) {
