@@ -1,4 +1,4 @@
-// file for various interfaces and structs
+// file for various symbol interfaces and structs
 
 package main
 
